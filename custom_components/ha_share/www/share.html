@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>HA Share</title>
+<style>
+/* ================= 主题变量（管理员可覆盖 --card-bg/--text/--accent） ================= */
+body.theme-light{color-scheme:light;
+  --page-bg:#f2f4f8;--card-bg:#ffffff;--text:#1d232b;--muted:#8892a0;
+  --accent:#4f6ef7;--accent-weak:rgba(79,110,247,.12);
+  --ok:#1f9d61;--danger:#e5484d;--danger-weak:rgba(229,72,77,.12);
+  --line:#e6eaf0;--chip-bg:#eef1f6;--shadow:0 1px 3px rgba(16,24,40,.06);}
+body.theme-dark{color-scheme:dark;
+  --page-bg:#0f141a;--card-bg:#1a2028;--text:#e7eaef;--muted:#8b95a3;
+  --accent:#6d8dff;--accent-weak:rgba(109,141,255,.16);
+  --ok:#37c284;--danger:#ff6369;--danger-weak:rgba(255,99,105,.14);
+  --line:#2a323d;--chip-bg:#242c36;--shadow:0 1px 3px rgba(0,0,0,.3);}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--page-bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;min-height:100vh}
+.hidden{display:none !important}
+.screen{max-width:640px;margin:0 auto;padding:14px 14px calc(28px + env(safe-area-inset-bottom))}
+
+/* ================= 头部 / 卡片列表 ================= */
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:8px 2px 14px}
+.page-head h1{margin:0;font-size:20px;line-height:1.3;word-break:break-word}
+#page-desc{margin:6px 0 0;font-size:13px;color:var(--muted);line-height:1.55;white-space:pre-wrap}
+.page-footer{margin-top:20px;text-align:center;font-size:12px;color:var(--muted);line-height:1.6}
+#cards{display:flex;flex-direction:column;gap:12px}
+.empty-note{text-align:center;color:var(--muted);font-size:13px;padding:40px 0}
+
+.card{background:var(--card-bg);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
+.card-head{display:flex;align-items:center;gap:10px}
+.card-icon{font-size:22px;line-height:1;flex:none;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:var(--chip-bg);border-radius:12px;overflow:hidden}
+.card-title{flex:1;min-width:0}
+.card-name{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-sub{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
+.chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--chip-bg);color:var(--muted);white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.chip.on{background:var(--accent-weak);color:var(--accent)}
+.chip.bad{background:var(--danger-weak);color:var(--danger)}
+.badge{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.zero{border-color:transparent;background:var(--danger-weak);color:var(--danger)}
+
+.attrs{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.attr{white-space:nowrap}
+.attr b{color:var(--text);font-weight:600}
+
+.note{margin-top:12px;font-size:13px;color:var(--muted);background:var(--chip-bg);border-radius:10px;padding:9px 12px;line-height:1.5}
+.note.warn{color:var(--danger);background:var(--danger-weak)}
+
+/* ================= 按钮 ================= */
+.btn{appearance:none;-webkit-appearance:none;border:1px solid var(--line);background:var(--card-bg);color:var(--text);
+  border-radius:12px;padding:10px 14px;font-size:14px;font-weight:600;cursor:pointer;
+  transition:transform .05s,opacity .15s;flex:1 1 auto;min-width:0;font-family:inherit}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost-danger{color:var(--danger);border-color:transparent;background:var(--danger-weak)}
+.btn.block{width:100%;flex:none}
+.btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn-row .btn{flex:1 1 auto;min-width:76px}
+.icon-btn{flex:none;width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--card-bg);color:var(--text);
+  font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.icon-btn.spin{animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* ================= 开关 / 滑块 / 输入 ================= */
+.toggle{position:relative;display:inline-block;width:52px;height:30px;flex:none}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle .knob{position:absolute;inset:0;border-radius:999px;background:var(--chip-bg);border:1px solid var(--line);transition:background .18s,border-color .18s;cursor:pointer}
+.toggle .knob::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .18s}
+.toggle input:checked+.knob{background:var(--accent);border-color:var(--accent)}
+.toggle input:checked+.knob::after{transform:translateX(22px)}
+.toggle input:disabled+.knob{opacity:.6;cursor:default}
+
+.ctl-row{margin-top:12px}
+.ctl-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);gap:8px}
+.ctl-val{color:var(--text);font-weight:600;white-space:nowrap}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;background:transparent;margin:2px 0 0}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--chip-bg)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);margin-top:-8px;border:none;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--chip-bg)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--accent);border:none}
+
+select,input[type=text],input[type=password]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+  background:var(--card-bg);color:var(--text);font-size:14px;outline:none;font-family:inherit}
+select:focus,input:focus{border-color:var(--accent)}
+input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card-bg);padding:2px;cursor:pointer}
+
+.step-body{display:flex;align-items:center;gap:10px;margin-top:8px}
+.step-body .val{flex:1;text-align:center;font-size:19px;font-weight:700}
+.step-body .btn{flex:none;width:44px;height:38px;padding:0;font-size:18px;border-radius:10px}
+.text-set{display:flex;gap:8px;margin-top:8px}
+.text-set input{flex:1}
+.text-set .btn{flex:none;width:72px}
+
+/* ================= 密码 / 错误 / 加载 ================= */
+.loading-box{display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:22vh;color:var(--muted);font-size:13px}
+.spinner{width:30px;height:30px;border-radius:50%;border:3px solid var(--chip-bg);border-top-color:var(--accent);animation:rot .9s linear infinite}
+
+.pw-card{background:var(--card-bg);border:1px solid var(--line);border-radius:18px;padding:26px 22px;max-width:340px;margin:16vh auto 0;
+  box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px;text-align:center}
+.pw-icon{font-size:34px;line-height:1}
+.pw-card h2{margin:0;font-size:18px}
+.pw-hint{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
+.pw-error{font-size:12px;color:var(--danger);min-height:16px;line-height:1.4}
+
+.err-box{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding-top:18vh}
+.err-icon{font-size:44px;line-height:1}
+.err-box h2{margin:0;font-size:19px}
+.err-box p{margin:0;font-size:13px;color:var(--muted);max-width:300px;line-height:1.6}
+.err-box .btn{margin-top:14px;flex:none;padding:10px 28px}
+
+/* ================= 弹窗 / Toast ================= */
+.modal-mask{position:fixed;inset:0;background:rgba(10,14,20,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+.modal-card{background:var(--card-bg);color:var(--text);border-radius:16px;padding:20px;width:100%;max-width:320px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.modal-card h3{margin:0 0 8px;font-size:16px}
+.modal-card p{margin:0 0 16px;font-size:13px;color:var(--muted);line-height:1.55}
+.modal-actions{display:flex;gap:10px}
+.modal-actions .btn{flex:1}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);
+  background:rgba(20,26,34,.92);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;z-index:60;max-width:86vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:rgba(31,125,87,.95)}
+.toast.error{background:rgba(190,50,55,.95)}
+</style>
+</head>
+<body class="theme-light">
+
+<!-- 加载中 -->
+<div id="screen-loading" class="screen">
+  <div class="loading-box"><div class="spinner"></div><div>正在加载分享内容…</div></div>
+</div>
+
+<!-- 密码校验 -->
+<div id="screen-password" class="screen hidden">
+  <div class="pw-card">
+    <div class="pw-icon">🔐</div>
+    <h2>需要访问密码</h2>
+    <p class="pw-hint">该分享受密码保护，请输入密码后继续</p>
+    <input id="pw-input" type="password" placeholder="访问密码" autocomplete="off">
+    <div id="pw-error" class="pw-error"></div>
+    <button id="pw-submit" class="btn primary block" type="button">验证并访问</button>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="screen-main" class="screen hidden">
+  <header class="page-head">
+    <div style="flex:1;min-width:0">
+      <h1 id="page-title"></h1>
+      <p id="page-desc" class="hidden"></p>
+    </div>
+    <button id="btn-refresh" class="icon-btn" type="button" title="手动刷新">⟳</button>
+  </header>
+  <main id="cards"></main>
+  <footer id="page-footer" class="page-footer hidden"></footer>
+</div>
+
+<!-- 失效 / 错误 -->
+<div id="screen-error" class="screen hidden">
+  <div class="err-box">
+    <div id="err-icon" class="err-icon"></div>
+    <h2 id="err-title"></h2>
+    <p id="err-sub"></p>
+    <button id="err-retry" class="btn hidden" type="button">重新加载</button>
+  </div>
+</div>
+
+<!-- 二次确认弹窗 -->
+<div id="modal" class="modal-mask hidden">
+  <div class="modal-card">
+    <h3 id="modal-title"></h3>
+    <p id="modal-text"></p>
+    <div class="modal-actions">
+      <button id="modal-cancel" class="btn" type="button">取消</button>
+      <button id="modal-ok" class="btn primary" type="button">确认</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+(function () {
+
+  /* ============================== 基础工具 ============================== */
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function btn(label, cls, onclick) {
+    const b = el("button", "btn" + (cls ? " " + cls : ""), label);
+    b.type = "button";
+    b.addEventListener("click", onclick);
+    return b;
+  }
+  function setText(node, s) {
+    if (s) { node.textContent = s; node.classList.remove("hidden"); }
+    else { node.textContent = ""; node.classList.add("hidden"); }
+  }
+  function fmtNum(v) {
+    let s = String(Number(v));
+    if (s.includes(".")) s = s.replace(/0+$/, "").replace(/\.$/, "");
+    return s;
+  }
+  function fmtVal(v) {
+    if (typeof v === "boolean") return v ? "是" : "否";
+    if (Array.isArray(v)) return v.slice(0, 6).map(fmtVal).join(" / ");
+    if (typeof v === "number") return fmtNum(v);
+    return String(v);
+  }
+
+  /* ============================== 词表 ============================== */
+  // 域 → emoji 图标（mdi 字体无法离线加载，统一用 emoji）
+  const EMOJI = {
+    light: "💡", switch: "🔌", lock: "🔒", cover: "🪟", climate: "🌡️",
+    media_player: "🔊", fan: "🌀", sensor: "📟", binary_sensor: "🔎",
+    humidifier: "💨", water_heater: "🚿", vacuum: "🤖", button: "🔘",
+    scene: "🎬", script: "📜", automation: "⚙️", input_boolean: "🔲",
+    input_button: "🔘", input_number: "🔢", input_select: "📋", input_text: "✍️",
+    number: "🔢", select: "📋", text: "✍️", siren: "📢", valve: "🔧",
+    alarm_control_panel: "🛡️", camera: "📷", weather: "⛅", person: "👤",
+    device_tracker: "📍", update: "⬆️", todo: "📝", calendar: "📅",
+    air_quality: "🌫️", sun: "☀️", moon: "🌙",
+  };
+  function iconFor(entity) {
+    const raw = entity.icon || "";
+    if (raw && !raw.startsWith("mdi:")) return raw; // 管理员自定义 emoji/文字
+    return EMOJI[entity.domain] || "⚡";
+  }
+
+  const STATE_TEXT = {
+    on: "开启", off: "关闭",
+    locked: "已上锁", unlocked: "已解锁", locking: "上锁中", unlocking: "解锁中",
+    open: "打开", opening: "打开中", closed: "已关闭", closing: "关闭中",
+    playing: "播放中", paused: "已暂停", idle: "空闲", standby: "待机", buffering: "缓冲中",
+    heat: "制热", cool: "制冷", heat_cool: "冷暖自动", auto: "自动", dry: "除湿", fan_only: "仅送风",
+    home: "在家", away: "离开", not_home: "离家",
+    cleaning: "清扫中", returning: "回充中", docked: "已回充", error: "错误",
+    unavailable: "不可用", unknown: "未知", normal: "正常", problem: "异常",
+    armed_home: "在家警戒", armed_away: "离家警戒", armed_night: "夜间警戒",
+    arming: "警戒中", pending: "待定", triggered: "已触发", disarmed: "已撤防",
+    charging: "充电中",
+  };
+  const ON_STATES = new Set(["on", "open", "unlocked", "playing", "heat", "cool",
+    "heat_cool", "auto", "home", "cleaning", "charging", "armed_home", "armed_away"]);
+  const BAD_STATES = new Set(["unavailable", "unknown", "problem", "error", "triggered"]);
+
+  const ERROR_TEXT = {
+    not_found: "链接无效或已被删除",
+    disabled: "该分享已被管理员停用",
+    not_started: "分享尚未开始",
+    expired: "分享已过期",
+    locked: "尝试次数过多，链接已被临时锁定",
+    password_required: "请输入访问密码",
+    password_invalid: "密码错误",
+    read_only: "该设备为只读，不允许控制",
+    exhausted: "该设备操作次数已用完",
+    entity_unavailable: "设备当前不可用",
+    entity_not_in_share: "无效的设备",
+    invalid_service: "不支持的操作",
+    service_failed: "操作执行失败，请重试",
+    invalid_request: "无效的请求",
+    network: "无法连接服务器，请检查网络",
+  };
+  const GATE_ERRORS = new Set(["not_found", "disabled", "not_started", "expired", "locked"]);
+
+  // 展示层跳过的属性（控件脚手架，非用户信息）
+  const DISPLAY_SKIP = new Set([
+    "min_mireds", "max_mireds", "supported_color_modes", "color_mode", "effect_list",
+    "hvac_modes", "fan_modes", "swing_modes", "preset_modes", "options", "min", "max",
+    "step", "mode", "brightness", "percentage_step", "current_position", "volume_level",
+    "temperature", "current_temperature", "target_temp_high", "target_temp_low",
+    "min_temp", "max_temp", "target_temp_step", "humidity", "current_humidity",
+    "min_humidity", "max_humidity", "hvac_mode", "fan_mode", "swing_mode", "preset_mode",
+    "percentage", "position", "tilt", "current_tilt", "supported_features",
+    "media_duration", "media_position", "media_position_updated_at", "media_series_title",
+    "is_volume_muted", "shuffle", "repeat", "code_format", "changed_by", "assumed_state",
+    "restored", "editable", "entity_picture", "unit_of_measurement", "device_class",
+    "state_class", "friendly_name", "icon", "rgb_color", "hs_color", "xy_color",
+    "effect", "valve_position",
+  ]);
+  const ATTR_LABELS = {
+    battery: "电量", temperature: "温度", humidity: "湿度",
+    media_title: "正在播放", media_artist: "艺术家", media_album_name: "专辑",
+    current_temperature: "当前温度", attribute: "属性", source: "来源",
+    total: "总量", today: "今日", yesterday: "昨日", speed: "风速",
+    frequency: "频率", power: "功率", energy: "电量", voltage: "电压",
+    status: "状态", room: "房间", zone: "区域",
+  };
+
+  const ACTION_LABELS = {
+    turn_on: "开启", turn_off: "关闭", toggle: "切换", press: "按下", trigger: "立即运行",
+    lock: "上锁", unlock: "解锁", open: "打开", close: "关闭", stop: "停止",
+    start: "启动", pause: "暂停", resume: "继续", return_to_base: "回充",
+    set_value: "设置", select_option: "选择", select_source: "选择来源",
+    volume_up: "音量 +", volume_down: "音量 −", mute: "静音", unmute: "取消静音",
+    play_media: "播放媒体", media_play: "播放", media_pause: "暂停",
+    media_play_pause: "播放/暂停", media_previous: "上一曲", media_next: "下一曲",
+    alarm_arm_home: "在家布防", alarm_arm_away: "离家布防", alarm_arm_night: "夜间布防",
+    alarm_disarm: "撤防", alarm_trigger: "触发警报",
+    open_valve: "打开阀门", close_valve: "关闭阀门", stop_valve: "停止阀门",
+    clean_spot: "定点清扫", locate: "定位", set_temperature: "设定温度",
+    set_hvac_mode: "设定模式", set_fan_mode: "设定风速", set_humidity: "设定湿度",
+  };
+  function humanize(svc) {
+    return ACTION_LABELS[svc] ||
+      svc.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  }
+
+  /* ============================== 全局状态 ============================== */
+  let shareId = "";
+  let key = "";                 // 访问密码（sessionStorage 缓存）
+  let shareState = null;        // 最近一次 /state 响应
+  let busy = false;             // 串行化控制请求
+  let pollTimer = null;
+  let pollMs = 0;
+
+  const KEY_STORE = () => "ha_share_key_" + shareId;
+  function keyHeaders(extra) {
+    const h = Object.assign({ "Content-Type": "application/json" }, extra || {});
+    if (key) h["X-HA-Share-Key"] = key;
+    return h;
+  }
+
+  /* ============================== 屏幕切换 ============================== */
+  const SCREENS = ["screen-loading", "screen-password", "screen-main", "screen-error"];
+  function showScreen(name) {
+    SCREENS.forEach((id) => $(id).classList.toggle("hidden", id !== "screen-" + name));
+  }
+
+  const ERROR_PAGE = {
+    not_found: ["🔗", "链接无效", "该分享链接不存在或已被删除"],
+    disabled: ["⛔", "分享已停用", "该分享已被管理员手动停用"],
+    not_started: ["⏳", "尚未开始", "该分享还未到生效时间，请稍后再试"],
+    expired: ["📅", "已过期", "该分享已超过有效期"],
+    locked: ["🔒", "已临时锁定", "密码错误次数过多，链接已被临时锁定，请稍后再试"],
+    network: ["📡", "连接失败", "无法连接 Home Assistant，请检查网络后重试"],
+  };
+  function showError(code) {
+    stopPoll();
+    const cfg = ERROR_PAGE[code] || ERROR_PAGE.network;
+    $("err-icon").textContent = cfg[0];
+    $("err-title").textContent = cfg[1];
+    $("err-sub").textContent = cfg[2];
+    $("err-retry").classList.toggle("hidden", code !== "network");
+    showScreen("error");
+  }
+
+  /* ============================== Toast / 确认弹窗 ============================== */
+  let toastTimer = null;
+  function toast(msg, type) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.className = "toast show" + (type ? " " + type : "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = "toast"; }, 2600);
+  }
+
+  function showConfirm(title, text, okLabel, onOk) {
+    $("modal-title").textContent = title;
+    $("modal-text").textContent = text;
+    $("modal-ok").textContent = okLabel || "确认";
+    $("modal").classList.remove("hidden");
+    const close = () => {
+      $("modal").classList.add("hidden");
+      $("modal-ok").onclick = null;
+      $("modal-cancel").onclick = null;
+    };
+    $("modal-ok").onclick = () => { close(); onOk && onOk(); };
+    $("modal-cancel").onclick = close;
+  }
+
+  /* ============================== API ============================== */
+  function api(path) { return "/share/" + encodeURIComponent(shareId) + "/" + path; }
+
+  // mode: "init" 首次加载 | "manual" 手动刷新 | "poll" 轮询
+  async function fetchState(mode) {
+    let res;
+    try {
+      res = await fetch(api("state"), { headers: keyHeaders(), cache: "no-store" });
+    } catch (e) {
+      if (mode === "init") showError("network");
+      else if (mode === "manual") toast(ERROR_TEXT.network, "error");
+      return;
+    }
+    let json = null;
+    try { json = await res.json(); } catch (e) { /* 非 JSON */ }
+    if (res.status === 401) { needPassword(); return; }
+    if (res.ok && json && json.ok) { applyState(json); return; }
+    const code = (json && json.error) || "network";
+    if (GATE_ERRORS.has(code)) { showError(code); return; }
+    if (mode === "init") showError("network");
+    else if (mode === "manual") toast(ERROR_TEXT[code] || ERROR_TEXT.network, "error");
+  }
+
+  // 执行控制；成功返回 true 并以响应中的实体视图重渲染
+  async function callService(entity, service, data) {
+    if (busy) { toast("正在处理上一个操作，请稍候"); return false; }
+    busy = true;
+    try {
+      const res = await fetch(api("call"), {
+        method: "POST",
+        headers: keyHeaders(),
+        body: JSON.stringify({
+          entity_id: entity.entity_id,
+          service: service,
+          data: data || {},
+        }),
+      });
+      let json = null;
+      try { json = await res.json(); } catch (e) { /* 非 JSON */ }
+      if (res.status === 401) { needPassword(); return false; }
+      if (res.ok && json && json.ok) {
+        toast("操作成功", "ok");
+        const idx = (shareState ? shareState.entities : [])
+          .findIndex((e) => e.entity_id === entity.entity_id);
+        if (idx >= 0) shareState.entities[idx] = json.entity || entity;
+        renderCards();
+        return true;
+      }
+      const code = (json && json.error) || "service_failed";
+      if (GATE_ERRORS.has(code)) { showError(code); return false; }
+      toast(ERROR_TEXT[code] || "操作失败", "error");
+      return false;
+    } catch (e) {
+      toast(ERROR_TEXT.network, "error");
+      return false;
+    } finally {
+      busy = false;
+    }
+  }
+
+  /* ============================== 密码 ============================== */
+  function needPassword() {
+    stopPoll();
+    key = "";
+    try { sessionStorage.removeItem(KEY_STORE()); } catch (e) { /* 忽略 */ }
+    $("pw-input").value = "";
+    $("pw-error").textContent = "";
+    showScreen("password");
+    setTimeout(() => $("pw-input").focus(), 50);
+  }
+
+  async function submitPassword() {
+    const input = $("pw-input");
+    const errBox = $("pw-error");
+    const pw = input.value;
+    if (!pw) { errBox.textContent = "请输入密码"; return; }
+    const submitBtn = $("pw-submit");
+    submitBtn.disabled = true;
+    errBox.textContent = "";
+    try {
+      const res = await fetch(api("verify"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-HA-Share-Key": pw },
+        body: JSON.stringify({ password: pw }),
+      });
+      let json = null;
+      try { json = await res.json(); } catch (e) { /* 非 JSON */ }
+      if (res.ok && json && json.ok) {
+        key = pw;
+        try { sessionStorage.setItem(KEY_STORE(), pw); } catch (e) { /* 忽略 */ }
+        input.value = "";
+        showScreen("loading");
+        await fetchState("init");
+        return;
+      }
+      const code = (json && json.error) || "network";
+      if (code === "locked") { showError("locked"); return; }
+      if (code === "password_invalid") {
+        errBox.textContent = "密码错误" +
+          (json && json.attempts_left != null ? `，剩余 ${json.attempts_left} 次机会` : "");
+      } else {
+        errBox.textContent = ERROR_TEXT[code] || "验证失败，请重试";
+      }
+    } catch (e) {
+      errBox.textContent = "网络错误，请重试";
+    } finally {
+      submitBtn.disabled = false;
+    }
+  }
+
+  /* ============================== 状态渲染 ============================== */
+  function stateTextOf(entity) {
+    const a = entity.attributes || {};
+    let text;
+    if (entity.state == null) text = "未知";
+    else if (STATE_TEXT[entity.state]) text = STATE_TEXT[entity.state];
+    else text = entity.state;
+    if (a.unit_of_measurement && !STATE_TEXT[entity.state]) {
+      text += " " + a.unit_of_measurement;
+    }
+    return text;
+  }
+  function chipClassOf(entity) {
+    if (BAD_STATES.has(entity.state)) return "chip bad";
+    if (ON_STATES.has(entity.state)) return "chip on";
+    return "chip";
+  }
+  function visibleAttrs(entity) {
+    const out = [];
+    const a = entity.attributes || {};
+    for (const k of Object.keys(a)) {
+      if (DISPLAY_SKIP.has(k)) continue;
+      const label = ATTR_LABELS[k] || k.replace(/_/g, " ");
+      out.push([label, fmtVal(a[k])]);
+    }
+    return out;
+  }
+
+  function applyState(data) {
+    shareState = data;
+    const ui = data.ui || {};
+    // 主题 + 管理员自定义颜色
+    document.body.classList.toggle("theme-dark", ui.theme === "dark");
+    document.body.classList.toggle("theme-light", ui.theme !== "dark");
+    const style = document.body.style;
+    if (ui.card_bg) style.setProperty("--card-bg", ui.card_bg);
+    if (ui.text_color) style.setProperty("--text", ui.text_color);
+    if (ui.accent) {
+      style.setProperty("--accent", ui.accent);
+      style.setProperty("--accent-weak", "color-mix(in srgb, " + ui.accent + " 14%, transparent)");
+    }
+    // 标题 / 描述 / 底部备注
+    const title = ui.title || data.name || "HA Share";
+    document.title = title;
+    $("page-title").textContent = title;
+    setText($("page-desc"), data.description);
+    setText($("page-footer"), ui.footer);
+    renderCards();
+    showScreen("main");
+    startPoll((data.poll_interval || 5) * 1000);
+  }
+
+  function renderCards() {
+    if (!shareState) return;
+    const box = $("cards");
+    box.textContent = "";
+    const entities = shareState.entities || [];
+    if (!entities.length) {
+      box.appendChild(el("div", "empty-note", "该分享未绑定任何设备"));
+      return;
+    }
+    entities.forEach((entity) => box.appendChild(renderCard(entity)));
+  }
+
+  function renderCard(entity) {
+    const card = el("article", "card");
+    // ---- 头部 ----
+    const head = el("div", "card-head");
+    head.appendChild(el("span", "card-icon", iconFor(entity)));
+    const titleBox = el("div", "card-title");
+    titleBox.appendChild(el("div", "card-name", entity.name || entity.entity_id));
+    titleBox.appendChild(el("div", "card-sub", entity.entity_id));
+    head.appendChild(titleBox);
+    const right = el("div", "card-right");
+    right.appendChild(el("span", chipClassOf(entity), stateTextOf(entity)));
+    if (entity.mode === "control" && entity.limit != null) {
+      right.appendChild(el("span", "badge" + (entity.remaining === 0 ? " zero" : ""),
+        entity.remaining === 0 ? "已用完" : "剩 " + entity.remaining + " 次"));
+    }
+    head.appendChild(right);
+    card.appendChild(head);
+
+    // ---- 不可用：提示并隐藏控件 ----
+    if (!entity.available) {
+      card.appendChild(el("div", "note warn", "⚠️ 设备不可用或已删除"));
+      return card;
+    }
+    // ---- 附加属性 ----
+    const attrs = visibleAttrs(entity);
+    if (attrs.length) {
+      const box = el("div", "attrs");
+      attrs.forEach(([k, v]) => {
+        const span = el("span", "attr");
+        span.appendChild(document.createTextNode(k + " "));
+        const b = el("b", null, v);
+        span.appendChild(b);
+        box.appendChild(span);
+      });
+      card.appendChild(box);
+    }
+    // ---- 控件 ----
+    const controls = controlsFor(entity);
+    if (controls && controls.childNodes.length) card.appendChild(controls);
+    return card;
+  }
+
+  function controlsFor(entity) {
+    if (entity.mode !== "control") return null;
+    const wrap = el("div", "controls");
+    if (entity.remaining === 0) {
+      wrap.appendChild(el("div", "note warn", "该设备操作次数已用完"));
+      return wrap;
+    }
+    const fn = RENDERERS[entity.domain];
+    if (fn) fn(entity, wrap);
+    else renderActions(entity, wrap);
+    return wrap;
+  }
+
+  /* ============================== 通用控件 ============================== */
+  // 开关行：label + toggle
+  function rowToggle(label, on, onchange) {
+    const row = el("div", "ctl-row");
+    const head = el("div", "ctl-head");
+    head.appendChild(el("span", "ctl-name", label));
+    const labelEl = el("label", "toggle");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = !!on;
+    input.addEventListener("change", async () => {
+      const target = input.checked;
+      input.disabled = true;
+      const ok = await onchange(target);
+      input.disabled = false;
+      if (!ok) input.checked = !target;
+    });
+    labelEl.appendChild(input);
+    labelEl.appendChild(el("span", "knob"));
+    head.appendChild(labelEl);
+    row.appendChild(head);
+    return row;
+  }
+
+  // 滑块行：label + 实时数值 + range（change 时提交）
+  function sliderRow(label, value, min, max, step, format, oncommit) {
+    const row = el("div", "ctl-row");
+    const head = el("div", "ctl-head");
+    head.appendChild(el("span", "ctl-name", label));
+    const val = el("span", "ctl-val", format(value));
+    head.appendChild(val);
+    const input = document.createElement("input");
+    input.type = "range";
+    input.min = String(min);
+    input.max = String(max);
+    input.step = String(step == null ? 1 : step);
+    input.value = String(value);
+    input.addEventListener("input", () => { val.textContent = format(Number(input.value)); });
+    input.addEventListener("change", () => { oncommit(Number(input.value)); });
+    row.appendChild(head);
+    row.appendChild(input);
+    return row;
+  }
+
+  // 数值步进行：label + [−] 值 [+]
+  function stepperRow(label, value, min, max, step, unit, oncommit) {
+    const row = el("div", "ctl-row");
+    const head = el("div", "ctl-head");
+    head.appendChild(el("span", "ctl-name", label));
+    row.appendChild(head);
+    const body = el("div", "step-body");
+    const val = el("span", "val", fmtNum(value) + (unit || ""));
+    const clamp = (v) => Math.max(min, Math.min(max, v));
+    const make = (delta) => btn(delta > 0 ? "+" : "−", "", async () => {
+      const nv = clamp(+(value + delta).toFixed(2));
+      const ok = await oncommit(nv);
+      if (ok) { value = nv; val.textContent = fmtNum(nv) + (unit || ""); }
+    });
+    body.appendChild(make(-step));
+    body.appendChild(val);
+    body.appendChild(make(step));
+    row.appendChild(body);
+    return row;
+  }
+
+  // 下拉行：label + select
+  function selectRow(label, options, current, formatOpt, oncommit) {
+    const row = el("div", "ctl-row");
+    const head = el("div", "ctl-head");
+    head.appendChild(el("span", "ctl-name", label));
+    row.appendChild(head);
+    const select = document.createElement("select");
+    options.forEach((opt) => {
+      const o = document.createElement("option");
+      o.value = String(opt);
+      o.textContent = formatOpt ? formatOpt(opt) : String(opt);
+      if (String(opt) === String(current)) o.selected = true;
+      select.appendChild(o);
+    });
+    select.addEventListener("change", () => { oncommit(select.value); });
+    row.appendChild(select);
+    return row;
+  }
+
+  function btnRow() {
+    const row = el("div", "btn-row");
+    return row;
+  }
+
+  /* ============================== 各域渲染器 ============================== */
+  const RENDERERS = {
+    light(entity, wrap) {
+      const a = entity.attributes || {};
+      const on = entity.state === "on";
+      wrap.appendChild(rowToggle(on ? "电源 · 已开启" : "电源 · 已关闭", on,
+        (v) => callService(entity, v ? "turn_on" : "turn_off")));
+      if (a.brightness != null) {
+        wrap.appendChild(sliderRow("亮度", Math.max(1, Math.round(a.brightness / 255 * 100)),
+          1, 100, 1, (v) => v + "%",
+          (v) => callService(entity, "turn_on", { brightness: Math.round(v * 2.55) })));
+      }
+      if (a.min_mireds != null && a.max_mireds != null) {
+        const cur = a.color_temp != null ? a.color_temp : Math.round((a.min_mireds + a.max_mireds) / 2);
+        wrap.appendChild(sliderRow("色温", cur, a.min_mireds, a.max_mireds, 1,
+          (v) => fmtNum(v) + " K",
+          (v) => callService(entity, "turn_on", { color_temp: Math.round(v) })));
+      }
+      const modes = a.supported_color_modes || [];
+      if (modes.some((m) => m === "xy" || m === "hs" || m === "rgb" || m === "rgbw" || m === "rgbww")) {
+        const row = el("div", "ctl-row");
+        const head = el("div", "ctl-head");
+        head.appendChild(el("span", "ctl-name", "颜色"));
+        let hex = "#ffffff";
+        if (Array.isArray(a.rgb_color) && a.rgb_color.length >= 3) {
+          hex = "#" + a.rgb_color.slice(0, 3).map((v) =>
+            Math.max(0, Math.min(255, Math.round(Number(v)))).toString(16).padStart(2, "0")).join("");
+        }
+        const input = document.createElement("input");
+        input.type = "color";
+        input.value = hex;
+        input.addEventListener("change", () => {
+          const r = parseInt(input.value.slice(1, 3), 16);
+          const g = parseInt(input.value.slice(3, 5), 16);
+          const b = parseInt(input.value.slice(5, 7), 16);
+          callService(entity, "turn_on", { rgb_color: [r, g, b] });
+        });
+        head.appendChild(input);
+        row.appendChild(head);
+        wrap.appendChild(row);
+      }
+    },
+
+    switch(entity, wrap) {
+      const on = entity.state === "on";
+      wrap.appendChild(rowToggle(on ? "电源 · 已开启" : "电源 · 已关闭", on,
+        (v) => callService(entity, v ? "turn_on" : "turn_off")));
+    },
+
+    input_boolean(entity, wrap) { RENDERERS.switch(entity, wrap); },
+    siren(entity, wrap) { RENDERERS.switch(entity, wrap); },
+    water_heater(entity, wrap) { RENDERERS.switch(entity, wrap); },
+
+    fan(entity, wrap) {
+      const a = entity.attributes || {};
+      const on = entity.state === "on";
+      wrap.appendChild(rowToggle(on ? "电源 · 已开启" : "电源 · 已关闭", on,
+        (v) => callService(entity, v ? "turn_on" : "turn_off")));
+      if (a.percentage != null) {
+        wrap.appendChild(sliderRow("风速", a.percentage, 0, 100, a.percentage_step || 1,
+          (v) => v + "%",
+          (v) => callService(entity, "set_percentage", { percentage: Math.round(v) })));
+      }
+    },
+
+    humidifier(entity, wrap) {
+      const a = entity.attributes || {};
+      const on = entity.state === "on";
+      wrap.appendChild(rowToggle(on ? "电源 · 已开启" : "电源 · 已关闭", on,
+        (v) => callService(entity, v ? "turn_on" : "turn_off")));
+      if (a.humidity != null && a.min_humidity != null && a.max_humidity != null) {
+        wrap.appendChild(sliderRow("目标湿度", a.humidity, a.min_humidity, a.max_humidity, 1,
+          (v) => v + "%", (v) => callService(entity, "set_humidity", { humidity: Math.round(v) })));
+      }
+    },
+
+    lock(entity, wrap) {
+      const row = btnRow();
+      row.appendChild(btn("🔒 上锁", "", () =>
+        showConfirm("确认上锁", "确定要上锁「" + (entity.name || entity.entity_id) + "」吗？", "上锁",
+          () => callService(entity, "lock"))));
+      row.appendChild(btn("🔓 解锁", "ghost-danger", () =>
+        showConfirm("确认解锁", "确定要解锁「" + (entity.name || entity.entity_id) + "」吗？", "解锁",
+          () => callService(entity, "unlock"))));
+      wrap.appendChild(row);
+    },
+
+    cover(entity, wrap) {
+      const a = entity.attributes || {};
+      const row = btnRow();
+      row.appendChild(btn("打开", "", () => callService(entity, "open_cover")));
+      row.appendChild(btn("停止", "", () => callService(entity, "stop_cover")));
+      row.appendChild(btn("关闭", "", () => callService(entity, "close_cover")));
+      wrap.appendChild(row);
+      if (a.current_position != null) {
+        wrap.appendChild(sliderRow("位置", a.current_position, 0, 100, 1, (v) => v + "%",
+          (v) => callService(entity, "set_cover_position", { position: Math.round(v) })));
+      }
+    },
+
+    valve(entity, wrap) {
+      const a = entity.attributes || {};
+      const row = btnRow();
+      row.appendChild(btn("打开", "", () => callService(entity, "open_valve")));
+      row.appendChild(btn("停止", "", () => callService(entity, "stop_valve")));
+      row.appendChild(btn("关闭", "", () => callService(entity, "close_valve")));
+      wrap.appendChild(row);
+      if (a.current_position != null) {
+        wrap.appendChild(sliderRow("开度", a.current_position, 0, 100, 1, (v) => v + "%",
+          (v) => callService(entity, "set_valve_position", { position: Math.round(v) })));
+      }
+    },
+
+    climate(entity, wrap) {
+      const a = entity.attributes || {};
+      if (Array.isArray(a.hvac_modes) && a.hvac_modes.length) {
+        wrap.appendChild(selectRow("模式", a.hvac_modes, entity.state,
+          (m) => STATE_TEXT[m] || m,
+          (v) => callService(entity, "set_hvac_mode", { hvac_mode: v })));
+      }
+      const minT = a.min_temp != null ? a.min_temp : 7;
+      const maxT = a.max_temp != null ? a.max_temp : 35;
+      if (a.temperature != null) {
+        wrap.appendChild(stepperRow("目标温度", a.temperature, minT, maxT,
+          a.target_temp_step || 0.5, "°C",
+          (v) => callService(entity, "set_temperature", { temperature: v })));
+      }
+      if (Array.isArray(a.fan_modes) && a.fan_modes.length) {
+        wrap.appendChild(selectRow("风速", a.fan_modes, a.fan_mode, null,
+          (v) => callService(entity, "set_fan_mode", { fan_mode: v })));
+      }
+    },
+
+    media_player(entity, wrap) {
+      const a = entity.attributes || {};
+      const row = btnRow();
+      row.appendChild(btn("⏮", "", () => callService(entity, "media_previous")));
+      row.appendChild(btn(entity.state === "playing" ? "⏸ 暂停" : "▶ 播放", "primary",
+        () => callService(entity, "media_play_pause")));
+      row.appendChild(btn("⏭", "", () => callService(entity, "media_next")));
+      wrap.appendChild(row);
+      if (a.volume_level != null) {
+        wrap.appendChild(sliderRow("音量", Math.round(a.volume_level * 100), 0, 100, 1,
+          (v) => v + "%",
+          (v) => callService(entity, "volume_set", { volume_level: v / 100 })));
+      }
+    },
+
+    vacuum(entity, wrap) {
+      const row = btnRow();
+      row.appendChild(btn("▶ 启动", "", () => callService(entity, "start")));
+      row.appendChild(btn("⏸ 暂停", "", () => callService(entity, "pause")));
+      row.appendChild(btn("🏠 回充", "", () => callService(entity, "return_to_base")));
+      wrap.appendChild(row);
+    },
+
+    button(entity, wrap) {
+      const row = btnRow();
+      row.appendChild(btn("执行", "primary", () => callService(entity, "press")));
+      wrap.appendChild(row);
+    },
+    input_button(entity, wrap) { RENDERERS.button(entity, wrap); },
+
+    scene(entity, wrap) {
+      const row = btnRow();
+      row.appendChild(btn("应用场景", "primary", () => callService(entity, "turn_on")));
+      wrap.appendChild(row);
+    },
+    script(entity, wrap) {
+      const row = btnRow();
+      row.appendChild(btn("运行", "primary", () => callService(entity, "turn_on")));
+      wrap.appendChild(row);
+    },
+
+    automation(entity, wrap) {
+      const on = entity.state === "on";
+      wrap.appendChild(rowToggle("自动化 · " + (on ? "已启用" : "已停用"), on,
+        (v) => callService(entity, v ? "turn_on" : "turn_off")));
+      const row = btnRow();
+      row.appendChild(btn("▶ 立即运行", "", () => callService(entity, "trigger")));
+      wrap.appendChild(row);
+    },
+
+    input_number(entity, wrap) {
+      const a = entity.attributes || {};
+      const value = Number(entity.state) || 0;
+      const unit = a.unit_of_measurement || "";
+      wrap.appendChild(sliderRow("设定值", value,
+        a.min != null ? a.min : 0, a.max != null ? a.max : 100, a.step || 1,
+        (v) => fmtNum(v) + (unit ? " " + unit : ""),
+        (v) => callService(entity, "set_value", { value: v })));
+    },
+    number(entity, wrap) { RENDERERS.input_number(entity, wrap); },
+
+    input_select(entity, wrap) {
+      const a = entity.attributes || {};
+      if (Array.isArray(a.options) && a.options.length) {
+        wrap.appendChild(selectRow("选项", a.options, entity.state, null,
+          (v) => callService(entity, "select_option", { option: v })));
+      }
+    },
+    select(entity, wrap) { RENDERERS.input_select(entity, wrap); },
+
+    input_text(entity, wrap) {
+      const row = el("div", "ctl-row");
+      const head = el("div", "ctl-head");
+      head.appendChild(el("span", "ctl-name", "文本值（当前：" + (entity.state || "—") + "）"));
+      row.appendChild(head);
+      const body = el("div", "text-set");
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = entity.state || "";
+      input.maxLength = a_maxlen(entity);
+      const submit = btn("设置", "primary", () => {
+        if (input.value === "") { toast("请输入内容"); return; }
+        callService(entity, "set_value", { value: input.value });
+      });
+      body.appendChild(input);
+      body.appendChild(submit);
+      row.appendChild(body);
+      wrap.appendChild(row);
+    },
+    text(entity, wrap) { RENDERERS.input_text(entity, wrap); },
+
+    alarm_control_panel(entity, wrap) {
+      const row = btnRow();
+      row.appendChild(btn("在家布防", "", () =>
+        showConfirm("确认布防", "确定切换到「在家布防」模式吗？", "布防",
+          () => callService(entity, "alarm_arm_home"))));
+      row.appendChild(btn("离家布防", "", () =>
+        showConfirm("确认布防", "确定切换到「离家布防」模式吗？", "布防",
+          () => callService(entity, "alarm_arm_away"))));
+      row.appendChild(btn("撤防", "ghost-danger", () =>
+        showConfirm("确认撤防", "确定要撤防该警报面板吗？", "撤防",
+          () => callService(entity, "alarm_disarm"))));
+      wrap.appendChild(row);
+    },
+  };
+
+  function a_maxlen(entity) {
+    const a = entity.attributes || {};
+    const ml = a.max != null ? a.max : (a.maximum != null ? a.maximum : 100);
+    return Math.max(1, Math.min(500, Number(ml) || 100));
+  }
+
+  // 未知域：用后端下发的可用服务渲染按钮组
+  function renderActions(entity, wrap) {
+    const list = (entity.actions || []).slice(0, 12);
+    if (!list.length) {
+      wrap.appendChild(el("div", "note", "该设备暂无可用的控制服务"));
+      return;
+    }
+    const row = btnRow();
+    list.forEach((svc) => {
+      row.appendChild(btn(humanize(svc), "", () => callService(entity, svc, {})));
+    });
+    wrap.appendChild(row);
+  }
+
+  /* ============================== 轮询 ============================== */
+  function startPoll(ms) {
+    if (pollTimer && ms === pollMs) return;
+    stopPoll();
+    pollMs = ms;
+    pollTimer = setInterval(tick, ms);
+  }
+  function stopPoll() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    pollMs = 0;
+  }
+  function shouldSkipPoll() {
+    if (busy || document.hidden) return true;
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === "INPUT" || ae.tagName === "SELECT" || ae.tagName === "TEXTAREA")) return true;
+    if (!$("modal").classList.contains("hidden")) return true;
+    return false;
+  }
+  async function tick() {
+    if (shouldSkipPoll()) return;
+    await fetchState("poll");
+  }
+
+  /* ============================== 启动 ============================== */
+  async function manualRefresh() {
+    const b = $("btn-refresh");
+    b.classList.add("spin");
+    try { await fetchState("manual"); }
+    finally { b.classList.remove("spin"); }
+  }
+
+  function init() {
+    shareId = (location.pathname.split("/").filter(Boolean).pop() || "").toLowerCase();
+    if (!shareId) { showError("not_found"); return; }
+    try { key = sessionStorage.getItem(KEY_STORE()) || ""; } catch (e) { key = ""; }
+
+    $("btn-refresh").addEventListener("click", manualRefresh);
+    $("pw-submit").addEventListener("click", submitPassword);
+    $("pw-input").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") submitPassword();
+    });
+    $("err-retry").addEventListener("click", () => {
+      showScreen("loading");
+      fetchState("init");
+    });
+    // 从后台切回前台时立即刷新一次
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && $("screen-main").classList.contains("hidden") === false) {
+        fetchState("poll");
+      }
+    });
+
+    fetchState("init");
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

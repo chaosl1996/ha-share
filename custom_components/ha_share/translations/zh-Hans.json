@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HA Share 实体分享网关",
+        "description": "创建 Home Assistant 实体的临时受控分享。添加完成后，在侧边栏打开 **HA Share** 面板即可创建和管理分享任务。"
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "仅允许添加一个 HA Share 实例。"
+    }
+  }
+}

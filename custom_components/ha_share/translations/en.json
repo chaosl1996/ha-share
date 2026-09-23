@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HA Share",
+        "description": "Create a temporary sharing gateway for Home Assistant entities. After adding, open the **HA Share** panel in the sidebar to create and manage shares."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only a single HA Share instance is allowed."
+    }
+  }
+}

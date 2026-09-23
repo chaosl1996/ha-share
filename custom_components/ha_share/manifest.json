@@ -1,0 +1,13 @@
+{
+  "domain": "ha_share",
+  "name": "HA Share",
+  "codeowners": ["@chaosl1996"],
+  "config_flow": true,
+  "dependencies": ["http", "frontend", "panel_custom"],
+  "documentation": "https://github.com/chaosl1996/ha-share",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/chaosl1996/ha-share/issues",
+  "requirements": ["qrcode[pil]>=7.4"],
+  "version": "1.0.0"
+}
