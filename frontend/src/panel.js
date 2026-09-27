@@ -394,7 +394,7 @@ class HaSharePanel extends LitElement {
     }
     .wrap { max-width: 960px; margin: 0 auto; padding: 16px 16px 40px; }
     h1 { font-size: 22px; margin: 8px 0 4px; display: flex; align-items: center; gap: 10px; }
-    .sub { color: var(--hs-muted); font-size: 13px; margin: 0 0 12px; }
+    .sub { color: var(--hs-muted); font-size: 13px; margin: 0 0 12px; word-break: break-all; }
 
     .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hs-line); margin-bottom: 16px; }
     .tab {
@@ -411,11 +411,13 @@ class HaSharePanel extends LitElement {
       padding: 16px; margin-bottom: 14px;
     }
     .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .row > .row-input { flex: 1; min-width: 0; }
     .grow { flex: 1; }
 
     button.btn {
       appearance: none; border: 1px solid var(--hs-line); background: var(--hs-card); color: var(--hs-text);
       border-radius: 10px; padding: 8px 14px; font-size: 13px; font-weight: 500; cursor: pointer;
+      white-space: nowrap;
     }
     button.btn:hover { filter: brightness(1.05); }
     button.btn:disabled { opacity: .5; cursor: default; }
@@ -466,7 +468,9 @@ class HaSharePanel extends LitElement {
     }
     .pick-row:last-child { border-bottom: none; }
     .pick-row:hover { background: rgba(0,0,0,.03); }
-    .pick-row .eid { color: var(--hs-muted); font-size: 12px; }
+    .pick-row .eid { color: var(--hs-muted); font-size: 12px; flex: none; max-width: 44%;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pick-row .grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pick-ic { width: 22px; text-align: center; }
     input.cb { width: 16px; height: 16px; flex: none; }
 
@@ -513,6 +517,45 @@ class HaSharePanel extends LitElement {
 
     .empty { text-align: center; color: var(--hs-muted); padding: 36px 0; font-size: 14px; }
     .back { margin-bottom: 4px; }
+
+    /* ---------- 移动端适配：实体配置表卡片化 ---------- */
+    @media (max-width: 640px) {
+      .wrap { padding: 10px 10px 32px; }
+      h1 { font-size: 19px; }
+      .sub { font-size: 12px; }
+      .tabs { overflow-x: auto; }
+      .tab { padding: 9px 12px; font-size: 13px; flex: none; white-space: nowrap; }
+      .grid2 { grid-template-columns: 1fr; }
+
+      /* .row 内输入框独占一行，按钮组换行后均分宽度，文字完整不折行 */
+      .row > .row-input { flex: 1 1 100%; }
+      .row > .btn { flex: 1 1 auto; }
+      .etab-ctl { flex-wrap: wrap; }
+
+      table.etab thead { display: none; }
+      table.etab, table.etab tbody, table.etab tr { display: block; width: 100%; }
+      table.etab tr {
+        border: 1px solid var(--hs-line); border-radius: 12px;
+        padding: 6px 12px; margin: 0 0 12px;
+      }
+      table.etab td {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; padding: 7px 0; border-bottom: none;
+      }
+      table.etab td.ent-cell { display: block; padding-bottom: 4px; }
+      table.etab td.ent-cell .ent-name { white-space: normal; }
+      table.etab td[data-l]::before {
+        content: attr(data-l); font-size: 12px; color: var(--hs-muted); flex: none;
+      }
+      table.etab td[data-l] > select,
+      table.etab td[data-l] > input[type=text] { flex: 1; width: auto; }
+      .etab-ctl { flex: 1; display: flex; justify-content: flex-end; gap: 8px; }
+      .etab-ctl select { flex: 0 0 auto; }
+      .etab-ctl input[type=number] { width: 76px; flex: none; }
+      table.etab td.row-end { justify-content: flex-end; padding-top: 0; }
+      .etab input[type=text] { width: 100%; }
+      .etab select { max-width: 62%; }
+    }
   `;
 
   /* ============================== 渲染 ============================== */
@@ -641,33 +684,35 @@ class HaSharePanel extends LitElement {
               <tbody>
                 ${d.entities.map((e) => html`
                   <tr>
-                    <td>
+                    <td class="ent-cell">
                       <div class="ent-name">${iconOf(e.entity_id)} ${e.name}</div>
                       <div class="ent-eid mono">${e.entity_id}</div>
                       ${e.remaining != null ? html`<div class="rem">剩余 ${e.remaining} 次</div>` : ""}
                     </td>
-                    <td>
+                    <td data-l="权限">
                       <select .value=${e.mode} @change=${(ev) => { e.mode = ev.target.value; this.requestUpdate(); }}>
                         <option value="read">只读</option>
                         <option value="control">允许控制</option>
                       </select>
                     </td>
-                    <td>
+                    <td data-l="次数上限">
                       ${e.mode === "control" ? html`
-                        <select .value=${e.limitMode} @change=${(ev) => { e.limitMode = ev.target.value; this.requestUpdate(); }}>
-                          <option value="unlimited">不限次数</option>
-                          <option value="once">仅 1 次</option>
-                          <option value="n">限定 N 次</option>
-                        </select>
-                        ${e.limitMode === "n" ? html`
-                          <input type="number" min="1" max="999" .value=${e.limit}
-                            @input=${(ev) => { e.limit = ev.target.value; }} />` : ""}` : "—"}
+                        <div class="etab-ctl">
+                          <select .value=${e.limitMode} @change=${(ev) => { e.limitMode = ev.target.value; this.requestUpdate(); }}>
+                            <option value="unlimited">不限次数</option>
+                            <option value="once">仅 1 次</option>
+                            <option value="n">限定 N 次</option>
+                          </select>
+                          ${e.limitMode === "n" ? html`
+                            <input type="number" min="1" max="999" .value=${e.limit}
+                              @input=${(ev) => { e.limit = ev.target.value; }} />` : ""}
+                        </div>` : html`<span class="etab-ctl">—</span>`}
                     </td>
-                    <td><input type="text" placeholder="留空用默认" .value=${e.icon}
+                    <td data-l="图标"><input type="text" placeholder="留空用默认" .value=${e.icon}
                       @input=${(ev) => { e.icon = ev.target.value; }} /></td>
-                    <td><input type="checkbox" class="cb" .checked=${e.show_attrs}
+                    <td data-l="属性"><input type="checkbox" class="cb" .checked=${e.show_attrs}
                       @change=${(ev) => { e.show_attrs = ev.target.checked; }} /></td>
-                    <td><button class="btn small danger" @click=${() => this._togglePick(e.entity_id)}>✕</button></td>
+                    <td class="row-end"><button class="btn small danger" @click=${() => this._togglePick(e.entity_id)}>✕</button></td>
                   </tr>`)}
               </tbody>
             </table>
@@ -691,7 +736,7 @@ class HaSharePanel extends LitElement {
         </div>
         <label class="f">访问密码 ${d.id && d.hasPassword && !d.clearPassword ? "（已设置；留空保持不变）" : ""}</label>
         <div class="row">
-          <input type="${this._pwVisible ? "text" : "password"}" style="flex:1"
+          <input type="${this._pwVisible ? "text" : "password"}" class="row-input"
             autocomplete="new-password"
             placeholder="${d.clearPassword ? "保存后清除密码" : d.id && d.hasPassword ? "留空保持现有密码" : "可选，留空则无需密码"}"
             .value=${d.clearPassword ? "" : d.newPassword}
@@ -778,7 +823,7 @@ class HaSharePanel extends LitElement {
       <div class="card">
         <label class="f">外网基础地址（生成分享链接时拼接，如 https://ha.example.com）</label>
         <div class="row">
-          <input type="text" style="flex:1" placeholder="https://你的HA外网域名" .value=${d.base_url || ""}
+          <input type="text" class="row-input" placeholder="https://你的HA外网域名" .value=${d.base_url || ""}
             @input=${(e) => { d.base_url = e.target.value; }} />
           <button class="btn" ?disabled=${this._busy} @click=${() => this._checkUrl()}>自检</button>
         </div>
