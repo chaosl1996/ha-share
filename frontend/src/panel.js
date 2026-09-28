@@ -455,7 +455,7 @@ class HaSharePanel extends LitElement {
     .share-meta { font-size: 12px; color: var(--hs-muted); margin-top: 4px; line-height: 1.7; }
     .share-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .url-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
-    .url-row .mono { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .url-row .mono { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* 实体选择器 */
     .picker-list {
@@ -531,6 +531,10 @@ class HaSharePanel extends LitElement {
       .row > .row-input { flex: 1 1 100%; }
       .row > .btn { flex: 1 1 auto; }
       .etab-ctl { flex-wrap: wrap; }
+      /* 手机上分享链接完整换行显示，不再截断 */
+      .url-row { flex-wrap: wrap; }
+      .url-row .mono { flex: 1 1 100%; white-space: normal; word-break: break-all;
+        overflow: visible; text-overflow: unset; }
 
       table.etab thead { display: none; }
       table.etab, table.etab tbody, table.etab tr { display: block; width: 100%; }
