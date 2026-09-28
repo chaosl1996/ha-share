@@ -45,12 +45,14 @@ body{background:var(--page-bg);color:var(--text);
 .chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--chip-bg);color:var(--muted);white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
 .chip.on{background:var(--accent-weak);color:var(--accent)}
 .chip.bad{background:var(--danger-weak);color:var(--danger)}
+.state-line{margin-top:10px;padding:8px 12px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.6;color:var(--text);background:var(--chip-bg);overflow-wrap:anywhere;word-break:break-word;white-space:pre-line}
 .badge{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
 .badge.zero{border-color:transparent;background:var(--danger-weak);color:var(--danger)}
 
 .attrs{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
-.attr{white-space:nowrap}
-.attr b{color:var(--text);font-weight:600}
+.attr{max-width:100%;min-width:0}
+.attr b{color:var(--text);font-weight:600;overflow-wrap:anywhere;word-break:break-word}
+.attr b.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;cursor:pointer}
 
 .note{margin-top:12px;font-size:13px;color:var(--muted);background:var(--chip-bg);border-radius:10px;padding:9px 12px;line-height:1.5}
 .note.warn{color:var(--danger);background:var(--danger-weak)}
@@ -570,13 +572,16 @@ input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-rad
     titleBox.appendChild(el("div", "card-sub", entity.entity_id));
     head.appendChild(titleBox);
     const right = el("div", "card-right");
-    right.appendChild(el("span", chipClassOf(entity), stateTextOf(entity)));
+    const stateText = stateTextOf(entity);
+    const longState = stateText.length > 14;
+    if (!longState) right.appendChild(el("span", chipClassOf(entity), stateText));
     if (entity.mode === "control" && entity.limit != null) {
       right.appendChild(el("span", "badge" + (entity.remaining === 0 ? " zero" : ""),
         entity.remaining === 0 ? "已用完" : "剩 " + entity.remaining + " 次"));
     }
     head.appendChild(right);
     card.appendChild(head);
+    if (longState) card.appendChild(el("div", "state-line", stateText));
 
     // ---- 不可用：提示并隐藏控件 ----
     if (!entity.available) {
@@ -591,6 +596,11 @@ input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-rad
         const span = el("span", "attr");
         span.appendChild(document.createTextNode(k + " "));
         const b = el("b", null, v);
+        if (String(v).length > 100) {
+          b.classList.add("clamp");
+          b.title = "点击展开或收起";
+          b.addEventListener("click", () => b.classList.toggle("clamp"));
+        }
         span.appendChild(b);
         box.appendChild(span);
       });
