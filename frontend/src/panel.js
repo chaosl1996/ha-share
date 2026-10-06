@@ -461,8 +461,9 @@ class HaSharePanel extends LitElement {
     .color-row { display: flex; align-items: center; gap: 10px; }
     .color-row .mono { flex: 1; }
 
-    /* 状态徽标 */
-    .st { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    /* 状态徽标：禁止换行与收缩，避免被挤成竖排 */
+    .st { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px;
+      font-weight: 600; white-space: nowrap; flex: none; }
     .st-ok { background: rgba(48,145,80,.14); color: #2e9e5b; }
     .st-warn { background: rgba(240,160,20,.16); color: #c07a0a; }
     .st-err { background: rgba(219,68,55,.13); color: var(--hs-err); }
@@ -470,11 +471,15 @@ class HaSharePanel extends LitElement {
 
     /* 分享列表卡片 */
     .share-head { display: flex; align-items: flex-start; gap: 10px; }
+    /* 关键：flex 子项默认 min-width 为内容宽度，必须允许收缩，
+       否则内部不换行的 URL 会把整张卡片乃至页面撑出横向滚动 */
+    .share-head .grow { min-width: 0; }
     .share-name { font-size: 16px; font-weight: 600; margin: 0; word-break: break-all; }
     .share-meta { font-size: 12px; color: var(--hs-muted); margin-top: 4px; line-height: 1.7; }
     .share-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .url-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
     .url-row .mono { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .url-row .btn { flex: none; }
 
     /* 实体选择器 */
     .picker-list {
