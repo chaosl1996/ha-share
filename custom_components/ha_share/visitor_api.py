@@ -20,6 +20,8 @@ from .const import (
     CONF_POLL_INTERVAL,
     DOMAIN,
     ENTITY_FIELD_ENTITY_ID,
+    ENTITY_FIELD_ATTR_NAMES,
+    ENTITY_FIELD_ATTRS,
     ENTITY_FIELD_ICON,
     ENTITY_FIELD_LIMIT,
     ENTITY_FIELD_MODE,
@@ -140,14 +142,31 @@ def _entity_view(hass: HomeAssistant, entity: dict, actions: list[str] | None = 
     if not name:
         name = entity_id
 
+    # Attributes are always sent (controls such as brightness sliders read
+    # them); "display_attrs" tells the visitor page which ones to render and
+    # under what display name.
     attributes: dict = {}
-    if entity.get(ENTITY_FIELD_SHOW_ATTRS, True) and state_obj is not None:
+    if state_obj is not None:
         attributes = {
             key: value
             for key, value in state_obj.attributes.items()
             if key not in HIDDEN_ATTRIBUTES
             and isinstance(value, (str, int, float, bool, list))
         }
+
+    display_attrs: list[dict] = []
+    if entity.get(ENTITY_FIELD_SHOW_ATTRS, True) and state_obj is not None:
+        names = entity.get(ENTITY_FIELD_ATTR_NAMES) or {}
+        whitelist = entity.get(ENTITY_FIELD_ATTRS)
+        if whitelist:
+            keys = [k for k in whitelist if k in state_obj.attributes]
+        else:
+            keys = [k for k, v in state_obj.attributes.items()
+                    if k not in HIDDEN_ATTRIBUTES
+                    and isinstance(v, (str, int, float, bool, list))]
+        display_attrs = [
+            {"key": k, "name": str(names.get(k) or k)} for k in keys
+        ]
 
     view = {
         "entity_id": entity_id,
@@ -160,6 +179,7 @@ def _entity_view(hass: HomeAssistant, entity: dict, actions: list[str] | None = 
         "available": available,
         "state": state_obj.state if state_obj is not None else None,
         "attributes": attributes,
+        "display_attrs": display_attrs,
     }
     if actions is not None:
         view["actions"] = actions

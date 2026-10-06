@@ -75,6 +75,8 @@ ENTITY_FIELD_LIMIT = "limit"
 ENTITY_FIELD_REMAINING = "remaining"
 ENTITY_FIELD_ICON = "icon"
 ENTITY_FIELD_SHOW_ATTRS = "show_attrs"
+ENTITY_FIELD_ATTRS = "attrs"
+ENTITY_FIELD_ATTR_NAMES = "attr_names"
 
 MODE_READ = "read"
 MODE_CONTROL = "control"

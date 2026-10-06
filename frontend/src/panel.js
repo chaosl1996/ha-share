@@ -40,6 +40,14 @@ const toLocalInput = (iso) => {
 };
 const esc = (s) => String(s ?? "");
 
+/* Noise attributes never offered in the per-attribute picker (mirrors the
+   backend HIDDEN_ATTRIBUTES set). */
+const PANEL_HIDDEN_ATTRS = new Set([
+  "friendly_name", "icon", "entity_picture", "assumed_state", "restored",
+  "supported_features", "device_class", "state_class", "editable",
+  "code_format", "changed_by",
+]);
+
 class HaSharePanel extends LitElement {
   static properties = {
     hass: { attribute: false },
@@ -210,7 +218,9 @@ class HaSharePanel extends LitElement {
         mode: e.mode || "read",
         limitMode: e.limit == null ? "unlimited" : (e.limit === 1 ? "once" : "n"),
         limit: e.limit != null ? String(e.limit) : "3",
-        show_attrs: e.show_attrs !== false,
+        showAttrs: e.attrs ? "custom" : (e.show_attrs !== false ? "all" : "none"),
+        attrs: [...(e.attrs || [])],
+        attrNames: { ...(e.attr_names || {}) },
         remaining: e.remaining,
       })),
       hasPassword: !!share.has_password,
@@ -224,6 +234,13 @@ class HaSharePanel extends LitElement {
         footer: (share.ui && share.ui.footer) || "",
       },
     };
+  }
+
+  /** Attribute keys of an entity, minus the noise attributes (same set as backend HIDDEN_ATTRIBUTES). */
+  _entityAttrKeys(entityId) {
+    const st = this.hass && this.hass.states && this.hass.states[entityId];
+    if (!st || !st.attributes) return [];
+    return Object.keys(st.attributes).filter((k) => !PANEL_HIDDEN_ATTRS.has(k));
   }
 
   _pickerResults() {
@@ -250,7 +267,7 @@ class HaSharePanel extends LitElement {
         entity_id: entityId,
         name: st?.attributes?.friendly_name || entityId,
         icon: "", mode: "read", limitMode: "unlimited", limit: "3",
-        show_attrs: true, remaining: null,
+        showAttrs: "all", attrs: [], attrNames: {}, remaining: null,
       });
     }
     this.requestUpdate();
@@ -269,7 +286,9 @@ class HaSharePanel extends LitElement {
       limit: e.limitMode === "unlimited" ? null
         : (e.limitMode === "once" ? 1 : Math.max(1, parseInt(e.limit, 10) || 1)),
       icon: e.icon || null,
-      show_attrs: !!e.show_attrs,
+      show_attrs: e.showAttrs !== "none",
+      attrs: e.showAttrs === "custom" ? [...(e.attrs || [])] : null,
+      attr_names: e.attrNames && Object.keys(e.attrNames).length ? { ...e.attrNames } : null,
     }));
     const payload = {
       name: d.name.trim(),
@@ -483,8 +502,15 @@ class HaSharePanel extends LitElement {
     table.etab td { padding: 8px; border-bottom: 1px solid var(--hs-line); vertical-align: middle; }
     .etab-wrap { overflow-x: auto; }
     .ent-name { font-weight: 500; white-space: nowrap; }
-    .ent-eid { color: var(--hs-muted); font-size: 11px; }
+    .ent-eid { color: var(--hs-muted); font-size: 11px; word-break: break-all; }
     .rem { font-size: 11px; color: var(--hs-muted); white-space: nowrap; }
+    /* 自定义属性配置展开行 */
+    tr.attr-cfg > td { padding: 4px 8px 12px; border-bottom: 1px solid var(--hs-line); }
+    .attr-cfg-box { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto;
+      border: 1px dashed var(--hs-line); border-radius: 10px; padding: 8px 10px; }
+    .attr-cfg-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .attr-cfg-row .mono { flex: 0 0 auto; max-width: 44%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .attr-cfg-row input[type=text] { flex: 1; min-width: 0; width: auto; }
     .etab input[type=text] { width: 90px; padding: 5px 8px; font-size: 12px; }
     .etab input[type=number] { width: 70px; padding: 5px 8px; font-size: 12px; }
     .etab select { width: auto; padding: 5px 8px; font-size: 12px; }
@@ -531,10 +557,14 @@ class HaSharePanel extends LitElement {
       .row > .row-input { flex: 1 1 100%; }
       .row > .btn { flex: 1 1 auto; }
       .etab-ctl { flex-wrap: wrap; }
-      /* 手机上分享链接完整换行显示，不再截断 */
-      .url-row { flex-wrap: wrap; }
-      .url-row .mono { flex: 1 1 100%; white-space: normal; word-break: break-all;
-        overflow: visible; text-overflow: unset; }
+      /* 手机上分享链接单行省略展示，复制按钮保持同行 */
+      .url-row { flex-wrap: nowrap; }
+      .url-row .mono { min-width: 0; }
+      /* 已选实体卡片：标签与控件放不下时整体换行，杜绝横向溢出 */
+      table.etab tr { max-width: 100%; box-sizing: border-box; }
+      table.etab td[data-l] { flex-wrap: wrap; }
+      .etab-ctl select { max-width: 100%; }
+      .etab select option { white-space: normal; }
 
       table.etab thead { display: none; }
       table.etab, table.etab tbody, table.etab tr { display: block; width: 100%; }
@@ -547,6 +577,7 @@ class HaSharePanel extends LitElement {
         gap: 12px; padding: 7px 0; border-bottom: none;
       }
       table.etab td.ent-cell { display: block; padding-bottom: 4px; }
+      tr.attr-cfg > td { display: block; padding: 4px 12px 12px; }
       table.etab td.ent-cell .ent-name { white-space: normal; }
       table.etab td[data-l]::before {
         content: attr(data-l); font-size: 12px; color: var(--hs-muted); flex: none;
@@ -714,10 +745,45 @@ class HaSharePanel extends LitElement {
                     </td>
                     <td data-l="图标"><input type="text" placeholder="留空用默认" .value=${e.icon}
                       @input=${(ev) => { e.icon = ev.target.value; }} /></td>
-                    <td data-l="属性"><input type="checkbox" class="cb" .checked=${e.show_attrs}
-                      @change=${(ev) => { e.show_attrs = ev.target.checked; }} /></td>
+                    <td data-l="属性">
+                      <select .value=${e.showAttrs}
+                        @change=${(ev) => {
+                          e.showAttrs = ev.target.value;
+                          if (e.showAttrs === "custom" && !(e.attrs || []).length) {
+                            e.attrs = this._entityAttrKeys(e.entity_id);
+                          }
+                          this.requestUpdate();
+                        }}>
+                        <option value="all">展示全部</option>
+                        <option value="custom">自定义选择</option>
+                        <option value="none">不展示</option>
+                      </select>
+                    </td>
                     <td class="row-end"><button class="btn small danger" @click=${() => this._togglePick(e.entity_id)}>✕</button></td>
-                  </tr>`)}
+                  </tr>
+                  ${e.showAttrs === "custom" ? html`
+                  <tr class="attr-cfg"><td colspan="6">
+                    <div class="attr-cfg-box">
+                      <div class="hint">勾选要在访客页展示的属性；右侧输入框可自定义属性显示名称。</div>
+                      ${this._entityAttrKeys(e.entity_id).map((k) => html`
+                        <label class="attr-cfg-row">
+                          <input type="checkbox" class="cb" .checked=${(e.attrs || []).includes(k)}
+                            @change=${(ev) => {
+                              if (ev.target.checked) { (e.attrs = e.attrs || []).push(k); }
+                              else { e.attrs = (e.attrs || []).filter((x) => x !== k); }
+                              this.requestUpdate();
+                            }} />
+                          <span class="mono" title=${k}>${k}</span>
+                          <input type="text" placeholder="显示名称（可选）" .value=${(e.attrNames || {})[k] || ""}
+                            @input=${(ev) => {
+                              e.attrNames = e.attrNames || {};
+                              if (ev.target.value) { e.attrNames[k] = ev.target.value; }
+                              else { delete e.attrNames[k]; }
+                            }} />
+                        </label>`)}
+                      ${!this._entityAttrKeys(e.entity_id).length ? html`<div class="hint">该实体当前没有可配置的属性</div>` : ""}
+                    </div>
+                  </td></tr>` : ""}`)}
               </tbody>
             </table>
           </div>

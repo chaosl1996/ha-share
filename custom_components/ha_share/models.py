@@ -18,6 +18,8 @@ from .const import (
     CONF_MAX_PASSWORD_RETRIES,
     CONF_POLL_INTERVAL,
     ENTITY_FIELD_ENTITY_ID,
+    ENTITY_FIELD_ATTR_NAMES,
+    ENTITY_FIELD_ATTRS,
     ENTITY_FIELD_ICON,
     ENTITY_FIELD_LIMIT,
     ENTITY_FIELD_MODE,
@@ -143,6 +145,22 @@ def normalize_entity(data: dict | None) -> dict:
     icon = data.get(ENTITY_FIELD_ICON)
     icon = str(icon).strip() if icon else None
 
+    # Optional per-attribute whitelist ("attrs") and display-name overrides
+    # ("attr_names"). Both null/absent for legacy shares (show everything).
+    attrs = data.get(ENTITY_FIELD_ATTRS)
+    if attrs is not None:
+        attrs = [str(k) for k in attrs if str(k).strip()]
+        attrs = attrs or None
+
+    attr_names = data.get(ENTITY_FIELD_ATTR_NAMES)
+    if attr_names is not None and isinstance(attr_names, dict):
+        attr_names = {
+            str(k): str(v).strip()
+            for k, v in attr_names.items() if str(v).strip()
+        }
+    else:
+        attr_names = None
+
     return {
         ENTITY_FIELD_ENTITY_ID: entity_id,
         ENTITY_FIELD_NAME: name,
@@ -151,6 +169,8 @@ def normalize_entity(data: dict | None) -> dict:
         ENTITY_FIELD_REMAINING: remaining,
         ENTITY_FIELD_ICON: icon,
         ENTITY_FIELD_SHOW_ATTRS: bool(data.get(ENTITY_FIELD_SHOW_ATTRS, True)),
+        ENTITY_FIELD_ATTRS: attrs,
+        ENTITY_FIELD_ATTR_NAMES: attr_names,
     }
 
 

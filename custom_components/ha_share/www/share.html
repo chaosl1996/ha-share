@@ -518,6 +518,14 @@ input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-rad
   function visibleAttrs(entity) {
     const out = [];
     const a = entity.attributes || {};
+    // Configured per-attribute whitelist + display names from the admin panel
+    if (Array.isArray(entity.display_attrs)) {
+      for (const d of entity.display_attrs) {
+        if (!(d.key in a) || DISPLAY_SKIP.has(d.key)) continue;
+        out.push([d.name || d.key, fmtVal(a[d.key])]);
+      }
+      return out;
+    }
     for (const k of Object.keys(a)) {
       if (DISPLAY_SKIP.has(k)) continue;
       const label = ATTR_LABELS[k] || k.replace(/_/g, " ");
