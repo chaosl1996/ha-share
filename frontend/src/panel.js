@@ -469,13 +469,11 @@ class HaSharePanel extends LitElement {
     .st-err { background: rgba(219,68,55,.13); color: var(--hs-err); }
     .st-gray { background: rgba(128,128,128,.15); color: var(--hs-muted); }
 
-    /* 分享列表卡片 */
-    .share-head { display: flex; align-items: flex-start; gap: 10px; }
-    /* 关键：flex 子项默认 min-width 为内容宽度，必须允许收缩，
-       否则内部不换行的 URL 会把整张卡片乃至页面撑出横向滚动 */
-    .share-head .grow { min-width: 0; }
-    .share-name { font-size: 16px; font-weight: 600; margin: 0; word-break: break-all; }
+    /* 分享列表卡片：名称与状态徽标同行，其余信息占满整卡宽度 */
+    .share-head { display: flex; align-items: center; gap: 10px; }
+    .share-name { flex: 1; min-width: 0; font-size: 16px; font-weight: 600; margin: 0; word-break: break-all; }
     .share-meta { font-size: 12px; color: var(--hs-muted); margin-top: 4px; line-height: 1.7; }
+    .share-meta .nw { white-space: nowrap; }
     .share-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .url-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
     .url-row .mono { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -565,6 +563,9 @@ class HaSharePanel extends LitElement {
       /* 手机上分享链接单行省略展示，复制按钮保持同行 */
       .url-row { flex-wrap: nowrap; }
       .url-row .mono { min-width: 0; }
+      /* 操作按钮 3 列网格均分，避免删除按钮孤行换行 */
+      .share-actions { display: grid; grid-template-columns: repeat(3, 1fr); }
+      .share-actions button.btn { width: 100%; box-sizing: border-box; padding: 7px 4px; }
       /* 已选实体卡片：标签与控件放不下时整体换行，杜绝横向溢出 */
       table.etab tr { max-width: 100%; box-sizing: border-box; }
       table.etab td[data-l] { flex-wrap: wrap; }
@@ -652,20 +653,20 @@ class HaSharePanel extends LitElement {
     return html`
       <div class="card">
         <div class="share-head">
-          <div class="grow">
-            <p class="share-name">${s.name}</p>
-            <div class="share-meta">
-              ${s.entities.length} 个实体（${ctrl.length} 个可控制） · 创建于 ${fmtTime(s.created_at)}<br>
-              有效期：${timeText}${s.has_password ? " · 🔐 密码保护" : ""}${counters ? html`<br>剩余次数：${counters}` : ""}
-            </div>
-            ${s.url ? html`
-              <div class="url-row">
-                <span class="mono" title=${s.url}>${s.url}</span>
-                <button class="btn small" @click=${() => this._copy(s.url)}>复制</button>
-              </div>` : html`<div class="hint">⚠️ 未配置外网基础地址，暂无法生成链接</div>`}
-          </div>
+          <p class="share-name">${s.name}</p>
           <span class="st ${st.cls}">${st.text}</span>
         </div>
+        <div class="share-meta">
+          <div>${s.entities.length} 个实体（${ctrl.length} 个可控制）</div>
+          <div>创建于 <span class="nw">${fmtTime(s.created_at)}</span></div>
+          <div>有效期：${timeText}${s.has_password ? " · 🔐 密码保护" : ""}</div>
+          ${counters ? html`<div>剩余次数：${counters}</div>` : ""}
+        </div>
+        ${s.url ? html`
+          <div class="url-row">
+            <span class="mono" title=${s.url}>${s.url}</span>
+            <button class="btn small" @click=${() => this._copy(s.url)}>复制</button>
+          </div>` : html`<div class="hint">⚠️ 未配置外网基础地址，暂无法生成链接</div>`}
         <div class="share-actions">
           <button class="btn small" @click=${() => { this._draft = this._draftFromShare(s); this._view = "edit"; }}>编辑</button>
           <button class="btn small" @click=${() => this._showQr(s)}>二维码</button>
