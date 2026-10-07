@@ -6,7 +6,7 @@ import logging
 DOMAIN = "ha_share"
 LOGGER = logging.getLogger(__package__)
 
-VERSION = "1.0.0"
+VERSION = "1.0.5"
 
 # ---------------------------------------------------------------------------
 # Panel
@@ -154,6 +154,9 @@ HIDDEN_ATTRIBUTES = frozenset(
         "editable",
         "code_format",
         "changed_by",
+        # Group entities list their member entity_ids; visitors have no use
+        # for it and it leaks the rest of the home's entity ids.
+        "entity_id",
     }
 )
 

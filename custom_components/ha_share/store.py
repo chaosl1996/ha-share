@@ -13,6 +13,7 @@ from .const import (
     ENTITY_FIELD_LIMIT,
     ENTITY_FIELD_MODE,
     ENTITY_FIELD_REMAINING,
+    FIELD_CREATED_AT,
     FIELD_ENABLED,
     FIELD_ENTITIES,
     FIELD_FAILED_ATTEMPTS,
@@ -105,8 +106,8 @@ class HaShareStorage:
 
         payload = dict(data)
         if existing is not None:
-            # Keep runtime fields unless explicitly provided
-            for key in (FIELD_FAILED_ATTEMPTS, FIELD_LOCKED_UNTIL):
+            # Keep runtime/server-owned fields unless explicitly provided
+            for key in (FIELD_CREATED_AT, FIELD_FAILED_ATTEMPTS, FIELD_LOCKED_UNTIL):
                 if key not in payload:
                     payload[key] = existing.get(key)
 

@@ -148,9 +148,10 @@ def normalize_entity(data: dict | None) -> dict:
     # Optional per-attribute whitelist ("attrs") and display-name overrides
     # ("attr_names"). Both null/absent for legacy shares (show everything).
     attrs = data.get(ENTITY_FIELD_ATTRS)
-    if attrs is not None:
-        attrs = [str(k) for k in attrs if str(k).strip()]
-        attrs = attrs or None
+    if isinstance(attrs, list):
+        attrs = [str(k) for k in attrs if str(k).strip()] or None
+    else:
+        attrs = None
 
     attr_names = data.get(ENTITY_FIELD_ATTR_NAMES)
     if attr_names is not None and isinstance(attr_names, dict):

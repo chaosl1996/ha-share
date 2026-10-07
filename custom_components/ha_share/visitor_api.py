@@ -70,6 +70,15 @@ from .security import check_request_password, verify_with_attempt_tracking
 
 _WWW_DIR = Path(__file__).parent / "www"
 
+# Service-call target selectors. Callers may only ever target the one shared
+# entity: HA's entity-service layer expands area_id/device_id/label_id from
+# call data alongside entity_id, so letting them through would let a visitor
+# controlling one light operate every device in an area.
+_TARGET_KEYS = frozenset({"entity_id", "device_id", "area_id", "label_id"})
+
+_MAX_ATTR_STR = 512
+_MAX_ATTR_LIST = 32
+
 # error code -> HTTP status
 _ERROR_STATUS = {
     ERR_NOT_FOUND: 404,
@@ -92,6 +101,40 @@ def _json_error(error_code: str, **extra) -> web.Response:
     payload = {"ok": False, "error": error_code}
     payload.update(extra)
     return web.json_response(payload, status=_ERROR_STATUS.get(error_code, 400))
+
+
+def _require_json_body(request: web.Request) -> web.Response | None:
+    """Reject non-JSON POSTs.
+
+    aiohttp parses the body regardless of Content-Type, so a cross-site
+    sendBeacon (text/plain) would otherwise reach the call/verify handlers.
+    Requiring application/json forces a CORS preflight that such requests
+    cannot pass.
+    """
+    if request.content_type != "application/json":
+        return _json_error(ERR_INVALID_REQUEST)
+    return None
+
+
+def _clean_attr_value(value):
+    """Payload-safe attribute value: primitives, short strings, flat primitive lists.
+
+    Returns None for anything else (dicts, long/nested lists) so objects like
+    weather forecasts never leak to the visitor payload.
+    """
+    if isinstance(value, bool) or isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        return value[:_MAX_ATTR_STR]
+    if isinstance(value, list) and 0 < len(value) <= _MAX_ATTR_LIST:
+        cleaned = [
+            item[:_MAX_ATTR_STR] if isinstance(item, str) else item
+            for item in value
+            if item is None or isinstance(item, (str, int, float, bool))
+        ]
+        if len(cleaned) == len(value):
+            return cleaned
+    return None
 
 
 def _get_storage(hass: HomeAssistant):
@@ -147,12 +190,12 @@ def _entity_view(hass: HomeAssistant, entity: dict, actions: list[str] | None = 
     # under what display name.
     attributes: dict = {}
     if state_obj is not None:
-        attributes = {
-            key: value
-            for key, value in state_obj.attributes.items()
-            if key not in HIDDEN_ATTRIBUTES
-            and isinstance(value, (str, int, float, bool, list))
-        }
+        for key, value in state_obj.attributes.items():
+            if key in HIDDEN_ATTRIBUTES:
+                continue
+            cleaned = _clean_attr_value(value)
+            if cleaned is not None:
+                attributes[key] = cleaned
 
     display_attrs: list[dict] = []
     if entity.get(ENTITY_FIELD_SHOW_ATTRS, True) and state_obj is not None:
@@ -227,7 +270,14 @@ class SharePageView(HomeAssistantView):
         if result[0] is None:
             # Unknown share: still serve the page; its JS shows an
             # "invalid link" screen after /state returns 404.
-            return web.FileResponse(page, headers={"Cache-Control": "no-cache"})
+            return web.FileResponse(
+                page,
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Frame-Options": "DENY",
+                    "Content-Security-Policy": "frame-ancestors 'none'",
+                },
+            )
         storage, share = result
 
         if _check_gate(storage, share) is not None:
@@ -239,7 +289,14 @@ class SharePageView(HomeAssistantView):
             )
         else:
             await storage.async_log(EVENT_PAGE_VIEW, ip=_client_ip(request), share=share)
-        return web.FileResponse(page, headers={"Cache-Control": "no-cache"})
+        return web.FileResponse(
+            page,
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Frame-Options": "DENY",
+                "Content-Security-Policy": "frame-ancestors 'none'",
+            },
+        )
 
 
 class ShareVerifyView(HomeAssistantView):
@@ -256,6 +313,9 @@ class ShareVerifyView(HomeAssistantView):
         if storage is None:
             return share_or_err
         share = share_or_err
+
+        if (bad := _require_json_body(request)) is not None:
+            return bad
 
         if (gate := _check_gate(storage, share)) is not None:
             await storage.async_log(
@@ -296,7 +356,7 @@ class ShareStateView(HomeAssistantView):
         if (gate := _check_gate(storage, share)) is not None:
             return gate
 
-        ok, error_code = await check_request_password(hass, share, request)
+        ok, error_code = await check_request_password(hass, storage, share, request)
         if not ok:
             return _json_error(error_code)
 
@@ -338,13 +398,16 @@ class ShareCallView(HomeAssistantView):
             return share_or_err
         share = share_or_err
 
+        if (bad := _require_json_body(request)) is not None:
+            return bad
+
         if (gate := _check_gate(storage, share)) is not None:
             await storage.async_log(
                 EVENT_BLOCKED, ip=_client_ip(request), share=share, detail="call blocked"
             )
             return gate
 
-        ok, error_code = await check_request_password(hass, share, request)
+        ok, error_code = await check_request_password(hass, storage, share, request)
         if not ok:
             return _json_error(error_code)
 
@@ -414,7 +477,9 @@ class ShareCallView(HomeAssistantView):
             entity[ENTITY_FIELD_REMAINING] = remaining - 1
             await storage.async_save_shares()
 
-        service_data = {key: value for key, value in data.items() if key != "entity_id"}
+        service_data = {
+            key: value for key, value in data.items() if key not in _TARGET_KEYS
+        }
         service_data["entity_id"] = entity_id
 
         try:

@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f2f4f8">
 <title>HA Share</title>
 <style>
 /* ================= 主题变量（管理员可覆盖 --card-bg/--text/--accent） ================= */
@@ -135,6 +136,40 @@ input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-rad
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{background:rgba(31,125,87,.95)}
 .toast.error{background:rgba(190,50,55,.95)}
+
+/* ================= 响应式 / 输入体验增强 ================= */
+:where(button,input,select):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{touch-action:manipulation}
+body{-webkit-tap-highlight-color:transparent}
+/* 矮屏（横屏手机）：顶部留白改用固定上限，避免密码卡被推出视口 */
+.loading-box{padding-top:min(22vh,140px)}
+.pw-card{margin:min(16vh,110px) auto 0}
+.err-box{padding-top:min(18vh,120px)}
+.page-head h1{font-size:clamp(18px,2.6vw,22px)}
+@media (hover:hover){
+  .btn:hover{filter:brightness(1.05)}
+  .btn.primary:hover{filter:brightness(1.1)}
+  .icon-btn:hover{background:var(--chip-bg)}
+}
+/* 触屏：输入 ≥16px 防 iOS 聚焦自动放大；控件加大到舒适触控尺寸 */
+@media (pointer:coarse){
+  select,input[type=text],input[type=password]{font-size:16px}
+  .btn{padding:12px 16px}
+  .icon-btn{width:44px;height:44px;font-size:20px}
+  .toggle{width:56px;height:32px}
+  .toggle input:checked+.knob::after{transform:translateX(26px)}
+  input[type=range]{height:36px}
+  input[type=range]::-webkit-slider-thumb{width:26px;height:26px;margin-top:-10px}
+  input[type=range]::-moz-range-thumb{width:26px;height:26px}
+}
+/* 平板/桌面：卡片改两列网格，宽屏不再单列拉长 */
+@media (min-width:820px){
+  .screen{max-width:1020px}
+  #cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;align-items:start}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
 </style>
 </head>
 <body class="theme-light">
@@ -406,6 +441,9 @@ input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-rad
     if (res.status === 401) { needPassword(); return; }
     if (res.ok && json && json.ok) { applyState(json); return; }
     const code = (json && json.error) || "network";
+    // 存储的密码已失效（服务端改过密码）：清掉本地缓存回到密码页，
+    // 避免旧密码的轮询在服务端累计失败次数触发整条链接锁定
+    if (code === "password_invalid") { needPassword(); return; }
     if (GATE_ERRORS.has(code)) { showError(code); return; }
     if (mode === "init") showError("network");
     else if (mode === "manual") toast(ERROR_TEXT[code] || ERROR_TEXT.network, "error");
@@ -437,6 +475,7 @@ input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-rad
         return true;
       }
       const code = (json && json.error) || "service_failed";
+      if (code === "password_invalid") { needPassword(); return false; }
       if (GATE_ERRORS.has(code)) { showError(code); return false; }
       toast(ERROR_TEXT[code] || "操作失败", "error");
       return false;
@@ -553,6 +592,12 @@ input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-rad
     $("page-title").textContent = title;
     setText($("page-desc"), data.description);
     setText($("page-footer"), ui.footer);
+    // 移动端浏览器地址栏配色跟随主题
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) {
+      const bg = getComputedStyle(document.body).getPropertyValue("--page-bg").trim();
+      if (bg) themeMeta.setAttribute("content", bg);
+    }
     renderCards();
     showScreen("main");
     startPoll((data.poll_interval || 5) * 1000);

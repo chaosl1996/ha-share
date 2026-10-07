@@ -45,7 +45,7 @@ const esc = (s) => String(s ?? "");
 const PANEL_HIDDEN_ATTRS = new Set([
   "friendly_name", "icon", "entity_picture", "assumed_state", "restored",
   "supported_features", "device_class", "state_class", "editable",
-  "code_format", "changed_by",
+  "code_format", "changed_by", "entity_id",
 ]);
 
 class HaSharePanel extends LitElement {
@@ -489,7 +489,7 @@ class HaSharePanel extends LitElement {
       border-bottom: 1px solid var(--hs-line); font-size: 14px;
     }
     .pick-row:last-child { border-bottom: none; }
-    .pick-row:hover { background: rgba(0,0,0,.03); }
+    .pick-row:hover { background: rgba(127,127,127,.12); }
     .pick-row .eid { color: var(--hs-muted); font-size: 12px; flex: none; max-width: 44%;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pick-row .grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -547,6 +547,29 @@ class HaSharePanel extends LitElement {
     .empty { text-align: center; color: var(--hs-muted); padding: 36px 0; font-size: 14px; }
     .back { margin-bottom: 4px; }
 
+    /* ---------- 输入体验 / 可访问性 ---------- */
+    button.btn, .tab { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    button.btn:focus-visible, .tab:focus-visible, input:focus-visible,
+    select:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--hs-primary); outline-offset: 2px;
+    }
+    @media (hover:hover) {
+      table.ltab tbody tr:hover { background: rgba(127,127,127,.08); }
+    }
+    /* 触屏：输入 ≥16px 防 iOS 聚焦自动放大，控件加大到舒适触控尺寸 */
+    @media (pointer:coarse) {
+      input[type=text], input[type=number], input[type=password],
+      input[type=datetime-local], select, textarea { font-size: 16px; }
+      button.btn { padding: 10px 16px; }
+      button.btn.small { padding: 8px 12px; font-size: 13px; }
+      .tab { padding: 12px 16px; }
+      .pick-row { padding: 12px; }
+      input.cb { width: 18px; height: 18px; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+
     /* ---------- 移动端适配：实体配置表卡片化 ---------- */
     @media (max-width: 640px) {
       .wrap { padding: 10px 10px 32px; }
@@ -596,6 +619,9 @@ class HaSharePanel extends LitElement {
       table.etab td.row-end { justify-content: flex-end; padding-top: 0; }
       .etab input[type=text] { width: 100%; }
       .etab select { max-width: 62%; }
+
+      /* 日志表手机上保持单行，超出部分横向滚动，避免逐字竖排 */
+      table.ltab th, table.ltab td { white-space: nowrap; }
     }
   `;
 

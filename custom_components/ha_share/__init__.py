@@ -1,6 +1,7 @@
 """The HA Share integration: entity sharing gateway with per-entity quotas."""
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from pathlib import Path
 
@@ -39,6 +40,15 @@ _VISITOR_VIEWS = (
 )
 
 
+def _manifest_version() -> str:
+    """Single source of truth for the reported version: manifest.json."""
+    try:
+        with open(Path(__file__).parent / "manifest.json", encoding="utf-8") as fp:
+            return json.load(fp).get("version") or VERSION
+    except (OSError, ValueError):
+        return VERSION
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up HA Share from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -48,7 +58,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         storage = HaShareStorage(hass)
         await storage.async_load()
         domain_data["storage"] = storage
-    domain_data["version"] = VERSION
+    domain_data["version"] = _manifest_version()
 
     # Visitor HTTP endpoints are registered exactly once per HA process:
     # handlers resolve storage through hass.data at request time, so
