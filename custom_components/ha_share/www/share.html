@@ -162,10 +162,16 @@ body{-webkit-tap-highlight-color:transparent}
   input[type=range]::-webkit-slider-thumb{width:26px;height:26px;margin-top:-10px}
   input[type=range]::-moz-range-thumb{width:26px;height:26px}
 }
-/* 平板/桌面：卡片改两列网格，宽屏不再单列拉长 */
+/* 平板/桌面：瀑布流布局，不同高度的卡片按列独立堆叠，避免参差的空档 */
 @media (min-width:820px){
-  .screen{max-width:1020px}
-  #cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;align-items:start}
+  .screen{max-width:1080px}
+  #cards{display:block;columns:320px 3;column-gap:14px}
+  #cards .card{margin:0 0 14px;break-inside:avoid;page-break-inside:avoid}
+  #cards .empty-note{column-span:all}
+}
+@media (hover:hover) and (min-width:820px){
+  .card{transition:box-shadow .15s}
+  .card:hover{box-shadow:0 4px 14px rgba(16,24,40,.12)}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
